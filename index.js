@@ -1,6 +1,7 @@
 const dbSetUp = require("./db/db-setup");
 const express = require("express");
-
+const { swaggerDocs } = require("./api/swagger");
+require("dotenv").config();
 dbSetUp();
 
 const app = express();
@@ -9,6 +10,9 @@ const app = express();
 app.use(express.json());
 
 //routes
-app.use(require("./routes/index"));
-
-app.listen(8080, () => console.log("server on port 8080"));
+app.use(require("./api/routes/index"));
+const port = process.env.PORT || 8080;
+app.listen(port, () => {
+	console.log(`server on port ${port}`);
+	swaggerDocs(app, port);
+});

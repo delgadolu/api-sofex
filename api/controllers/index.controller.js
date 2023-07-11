@@ -1,17 +1,28 @@
-const Employee = require("../db/models/employee");
-const WeeklyPayment = require("../db/models/weeklyPayment");
-const WeeklyRecord = require("../db/models/weeklyRecord");
-const { generateRandomid } = require("../helpers/helpers");
+const Employee = require("../../db/models/employee");
+const WeeklyPayment = require("../../db/models/weeklyPayment");
+const WeeklyRecord = require("../../db/models/weeklyRecord");
+const {
+	generateRandomid,
+	validateID,
+	validateString,
+	validateNumber,
+} = require("../helpers/helpers");
+
+const util = require("util");
 
 const now = new Date();
 
 const getEmployeeByID = async (req, res) => {
 	try {
 		const { id } = req.params;
-		const employee = await Employee.query()
-			.findById(id)
-			.withGraphFetched("weeklyRecord");
-		res.json(employee);
+		console.log(Number(id));
+		if (Number.isInteger(Number(id))) {
+			const employee = await Employee.query()
+				.findById(id)
+				.withGraphFetched("weeklyRecord");
+			res.json(employee);
+		}
+		res.status(400).json({ data: "Error en la informacion ingresada" });
 	} catch (error) {
 		console.error(error);
 		res.status(500).json(error);
@@ -48,10 +59,19 @@ const insertEmployee = async (req, res) => {
 const updateEmployee = async (req, res) => {
 	try {
 		const { id_employee, name, last_name, charge, status } = req.body;
-		const employee = await Employee.query()
-			.findOne(id_employee)
-			.patch({ name, last_name, charge, status });
-		res.json(employee);
+		if (
+			validateID(id_employee) &&
+			validateString(name) &&
+			validateNumber(status) &&
+			validateString(name)
+		) {
+			const employee = await Employee.query()
+				.findOne(id_employee)
+				.patch({ name, last_name, charge, status });
+			res.json(employee);
+		} else {
+			res.status(400).json({ data: "Error en la informacion ingresada" });
+		}
 	} catch (error) {
 		console.error(error);
 		res.status(500).json(error);
@@ -61,7 +81,7 @@ const updateEmployee = async (req, res) => {
 const updateWeeklyPayment = async (req, res) => {
 	try {
 		const {
-			id_employee,
+			employee_id,
 			salary_initial,
 			hour,
 			hourExtra,
@@ -69,16 +89,17 @@ const updateWeeklyPayment = async (req, res) => {
 			extraMoney,
 			finalPayment,
 		} = req.body;
-		const weeklyPayment = await WeeklyPayment.findOne(id_employee).patch({
-			id_employee,
-			salary_initial,
-			hour,
-			hourExtra,
-			hourTotal,
-			extraMoney,
-			finalPayment,
-		});
-		res.json(weeklyPayment);
+		const weeklyPayment = await WeeklyPayment.query()
+			.patch({
+				salary_initial,
+				hour,
+				hourExtra,
+				hourTotal,
+				extraMoney,
+				finalPayment,
+			})
+			.where("employee_id", "=", employee_id);
+		res.json({ message: "Información actualizada" });
 	} catch (error) {
 		console.error(error);
 		res.status(500).json(error);
@@ -88,10 +109,15 @@ const updateWeeklyPayment = async (req, res) => {
 const deleteEmployee = async (req, res) => {
 	try {
 		const id_employee = req.query.id_employee;
-		const employee = await Employee.query()
-			.findOne(id_employee)
-			.patch({ status: 2 });
-		res.body(employee);
+
+		if (validateID(id_employee)) {
+			const employee = await Employee.query()
+				.findOne(id_employee)
+				.patch({ status: 2 });
+			res.json({ message: "Eliminado Correctamente" });
+		} else {
+			res.status(400).json({ data: "Error en la informacion ingresada" });
+		}
 	} catch (error) {
 		console.error(error);
 		res.status(500).json(error);
@@ -100,18 +126,23 @@ const deleteEmployee = async (req, res) => {
 
 const checkIn = async (req, res) => {
 	try {
-		const { id_employee } = req.body;
-		const logIn = await WeeklyRecord.query()
-			.findOne({
-				employee_id: id_employee,
-			})
-			.patch({ star_date: now, check_in: Number(now.getHours()) });
-		const logInPayment = await WeeklyPayment.query()
-			.findOne({
-				employee_id: id_employee,
-			})
-			.patch({ date_in: now });
-		res.json(logIn);
+		const id_employee = req.query.id_employee;
+		console.log(id_employee);
+		if (validateID(id_employee)) {
+			const logIn = await WeeklyRecord.query()
+				.findOne({
+					employee_id: id_employee,
+				})
+				.patch({ star_date: now, check_in: Number(now.getHours()) });
+			const logInPayment = await WeeklyPayment.query()
+				.findOne({
+					employee_id: id_employee,
+				})
+				.patch({ date_in: now });
+			res.send({ status: "OK", data: "registro Actualizado" });
+		} else {
+			res.status(400).json({ data: "Error en la informacion ingresada" });
+		}
 	} catch (error) {
 		console.error(error);
 		res.status(500).json(error);
@@ -144,7 +175,7 @@ const checkOut = async (req, res) => {
 		});
 
 		const hourinitial = dataPayment.hour == null ? 0 : Number(dataPayment.hour);
-		const hour = now.getHours() - dataWeeklyRecord.check_in + dataPayment.hour;
+		const hour = now.getHours() - dataWeeklyRecord.check_in + hourinitial;
 
 		const hourExtra = hour > 8 ? hour - 8 + dataPayment.hourExtra : 0;
 
@@ -170,18 +201,21 @@ const checkOut = async (req, res) => {
 const starWeek = async (req, res) => {
 	try {
 		const id_employee = req.query.id_employee;
-		const logIn = await WeeklyRecord.query()
-			.findOne({
-				employee_id: id_employee,
-			})
-			.patch({ star_date: now, check_in: 0, check_out: 0 });
+		if (validateID(id_employee)) {
+			const logIn = await WeeklyRecord.query()
+				.findOne({
+					employee_id: id_employee,
+				})
+				.patch({ star_date: now, check_in: 0, check_out: 0 });
 
-		const logInPayment = await WeeklyPayment.query()
-			.findOne({
-				employee_id: id_employee,
-			})
-			.patch({ date_in: now, date_out: now });
-		res.json(logIn);
+			const logInPayment = await WeeklyPayment.query()
+				.findOne({
+					employee_id: id_employee,
+				})
+				.patch({ date_in: now, date_out: now });
+			res.json(logIn);
+		}
+		res.status(400).json({ data: "Error en la informacion ingresada" });
 	} catch (error) {
 		console.error(error);
 		res.status(500).json(error);
@@ -191,14 +225,18 @@ const starWeek = async (req, res) => {
 const getReportPayment = async (req, res) => {
 	try {
 		const id_employee = req.query.id_employee;
-		if (id_employee) {
-			const weeklyPayment = await WeeklyPayment.query().findOne({
-				employee_id: id_employee,
-			});
-			res.json(weeklyPayment);
+		if (validateID(id_employee)) {
+			if (id_employee) {
+				const weeklyPayment = await WeeklyPayment.query().findOne({
+					employee_id: id_employee,
+				});
+				res.send({ status: "OK", data: weeklyPayment });
+			} else {
+				const weeklyPayment = await WeeklyPayment.query();
+				res.send({ status: "OK", data: weeklyPayment });
+			}
 		} else {
-			const weeklyPayment = await WeeklyPayment.query();
-			res.json(weeklyPayment);
+			res.status(400).json({ data: "Error en la informacion ingresada" });
 		}
 	} catch (error) {
 		console.error(error);

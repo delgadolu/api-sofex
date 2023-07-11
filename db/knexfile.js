@@ -9,9 +9,9 @@ module.exports = {
 	development: {
 		client: "postgresql",
 		connection: {
-			database: process.env.NAME_DB,
-			user: process.env.USER_DB,
-			password: process.env.PASS_DB,
+			database: "db_sofex",
+			user: "postgres",
+			password: "123456",
 		},
 		pool: {
 			min: 2,
