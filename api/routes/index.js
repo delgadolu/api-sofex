@@ -37,9 +37,7 @@ const {
  *               $ref:  '#/components/schemas/EmployeeByID'
  *       500:
  *         description: Some server error
- *
  */
-
 router.get("/employee/:id", getEmployeeByID);
 
 /**

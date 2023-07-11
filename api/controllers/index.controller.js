@@ -21,8 +21,9 @@ const getEmployeeByID = async (req, res) => {
 				.findById(id)
 				.withGraphFetched("weeklyRecord");
 			res.json(employee);
+		} else {
+			res.status(400).json({ data: "Error en la informacion ingresada" });
 		}
-		res.status(400).json({ data: "Error en la informacion ingresada" });
 	} catch (error) {
 		console.error(error);
 		res.status(500).json(error);
